@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jhoop">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<title>Jhoop</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0d10; --card:#14171c; --line:#232830; --text:#eef1f5; --mut:#8b94a3;
+  --rec-hi:#2fd38a; --rec-mid:#f2c94c; --rec-lo:#ff5a5f; --strain:#4c8dff; --hrv:#b48cff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 90px);max-width:520px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.logo{font-weight:800;letter-spacing:.18em;font-size:15px}
+.logo span{color:var(--strain)}
+.status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
+.dot{width:8px;height:8px;border-radius:50%;background:#555}
+.dot.on{background:var(--rec-hi);box-shadow:0 0 10px var(--rec-hi)}
+.dot.demo{background:var(--rec-mid)}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 16px;font-weight:600;background:#222832;color:var(--text)}
+button.primary{background:var(--text);color:#0b0d10}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button:disabled{opacity:.4}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.rings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.ring{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;text-align:center}
+.ring svg{width:100%;max-width:150px;display:block;margin:6px auto}
+.ring .val{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:30px}
+.big{display:flex;align-items:baseline;gap:8px}
+.big .n{font-family:"JetBrains Mono",monospace;font-size:64px;font-weight:700;line-height:1}
+.big .u{color:var(--mut);font-size:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:90px}
+.stat .v{font-family:"JetBrains Mono",monospace;font-size:20px;font-weight:700;margin-top:4px}
+.zones{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:12px;background:#1d2128}
+.zones div{height:100%}
+canvas{width:100%;display:block}
+nav{position:fixed;left:0;right:0;bottom:0;background:rgba(11,13,16,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 8px calc(env(safe-area-inset-bottom) + 8px)}
+nav .in{display:flex;max-width:520px;width:100%}
+nav button{flex:1;background:none;color:var(--mut);font-size:12px;padding:8px 4px;border-radius:10px}
+nav button.act{color:var(--text);background:#1a1e25}
+.view{display:none}.view.act{display:block}
+.pill{display:inline-block;font-size:11px;padding:3px 8px;border-radius:99px;background:#1d2128;color:var(--mut)}
+label.f{display:block;margin:10px 0 4px;font-size:13px;color:var(--mut)}
+input,select{width:100%;font:inherit;background:#0f1216;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px}
+.note{font-size:13px;color:var(--mut);line-height:1.5}
+.note b{color:var(--text)}
+.prog{height:6px;background:#1d2128;border-radius:3px;overflow:hidden;margin:12px 0}
+.prog div{height:100%;background:var(--hrv);width:0;transition:width .5s}
+.list .it{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.list .it:last-child{border:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translateX(-50%);background:#222832;padding:10px 14px;border-radius:12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9;max-width:90%}
+.toast.show{opacity:1}
+.beat{animation:beat .35s ease-out}
+@keyframes beat{0%{transform:scale(1.06)}100%{transform:scale(1)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">JH<span>OO</span>P</div>
+  <div class="status"><div class="dot" id="dot"></div><span id="statusTxt">Inte ansluten</span></div>
+</header>
+
+<!-- IDAG -->
+<section class="view act" id="v-today">
+  <div class="rings">
+    <div class="ring">
+      <div class="label">Återhämtning</div>
+      <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" stroke="#1d2128" stroke-width="10" fill="none"/>
+        <circle id="recArc" cx="60" cy="60" r="50" stroke="var(--rec-mid)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(-90 60 60)"/>
+        <text id="recTxt" x="60" y="68" text-anchor="middle" fill="#eef1f5" font-family="JetBrains Mono" font-weight="700" font-size="26">–</text></svg>
+      <div class="note" id="recNote">Gör en morgonmätning</div>
+    </div>
+    <div class="ring">
+      <div class="label">Belastning</div>
+      <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" stroke="#1d2128" stroke-width="10" fill="none"/>
+        <circle id="strArc" cx="60" cy="60" r="50" stroke="var(--strain)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(-90 60 60)"/>
+        <text id="strTxt" x="60" y="68" text-anchor="middle" fill="#eef1f5" font-family="JetBrains Mono" font-weight="700" font-size="26">0.0</text></svg>
+      <div class="note">av 21,0 idag</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="label">Puls nu</div>
+        <div class="big"><div class="n" id="hr">––</div><div class="u">bpm</div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="label">Zon</div>
+        <div class="mono" style="font-size:22px;margin-top:6px" id="zone">–</div>
+        <div class="pill" id="pctMax" style="margin-top:6px">– % av max</div>
+      </div>
+    </div>
+    <canvas id="live" height="110" style="margin-top:12px"></canvas>
+    <div class="zones" id="zoneBar"></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="stat"><div class="label">HRV (rmssd)</div><div class="v" id="hrvNow">–</div></div>
+      <div class="stat"><div class="label">Vilopuls</div><div class="v" id="rhr">–</div></div>
+      <div class="stat"><div class="label">Kcal idag</div><div class="v" id="kcal">0</div></div>
+    </div>
+    <div class="note" id="rrNote" style="margin-top:10px"></div>
+  </div>
+
+  <div class="row" style="margin-bottom:12px">
+    <button class="primary" id="btnConnect" style="flex:2">Anslut band</button>
+    <button class="ghost" id="btnDemo" style="flex:1">Demo</button>
+  </div>
+  <div class="note" id="btHelp"></div>
+</section>
+
+<!-- PASS -->
+<section class="view" id="v-workout">
+  <div class="card">
+    <div class="label">Träningspass</div>
+    <div class="big" style="margin-top:8px"><div class="n" id="wTime">0:00</div></div>
+    <div class="row" style="margin-top:14px">
+      <div class="stat"><div class="label">Snitt</div><div class="v" id="wAvg">–</div></div>
+      <div class="stat"><div class="label">Max</div><div class="v" id="wMax">–</div></div>
+      <div class="stat"><div class="label">Belastning</div><div class="v" id="wStrain">0.0</div></div>
+      <div class="stat"><div class="label">Kcal</div><div class="v" id="wKcal">0</div></div>
+    </div>
+    <canvas id="wChart" height="120" style="margin-top:12px"></canvas>
+    <select id="wType" style="margin-top:12px">
+      <option>Löpning</option><option>Cykling</option><option>Styrketräning</option><option>Promenad</option><option>Padel/Tennis</option><option>Yoga</option><option>Inspelning/jobb</option><option>Övrigt</option>
+    </select>
+    <button class="primary" id="btnWorkout" style="width:100%;margin-top:10px">Starta pass</button>
+  </div>
+  <div class="card list" id="wList"><div class="label">Senaste pass</div></div>
+</section>
+
+<!-- MORGON -->
+<section class="view" id="v-morning">
+  <div class="card">
+    <div class="label">Morgonmätning · återhämtning</div>
+    <p class="note" style="margin-top:10px">Ligg still direkt när du vaknat, andas lugnt. Mätningen tar <b>3 minuter</b> och läser varje hjärtslag (RR-intervall) för att räkna ut HRV och vilopuls. Jämförs mot ditt eget snitt de senaste 30 dagarna.</p>
+    <div class="prog"><div id="mProg"></div></div>
+    <div class="row">
+      <div class="stat"><div class="label">Tid</div><div class="v" id="mTime">3:00</div></div>
+      <div class="stat"><div class="label">Slag</div><div class="v" id="mBeats">0</div></div>
+      <div class="stat"><div class="label">HRV</div><div class="v" id="mHrv">–</div></div>
+      <div class="stat"><div class="label">Puls</div><div class="v" id="mHr">–</div></div>
+    </div>
+    <button class="primary" id="btnMorning" style="width:100%;margin-top:14px">Starta mätning</button>
+    <p class="note" id="mResult" style="margin-top:12px"></p>
+  </div>
+</section>
+
+<!-- TRENDER -->
+<section class="view" id="v-trends">
+  <div class="card"><div class="label">Återhämtning · 14 dagar</div><canvas id="tRec" height="130" style="margin-top:10px"></canvas></div>
+  <div class="card"><div class="label">Belastning · 14 dagar</div><canvas id="tStr" height="130" style="margin-top:10px"></canvas></div>
+  <div class="card"><div class="label">HRV · 14 dagar</div><canvas id="tHrv" height="130" style="margin-top:10px"></canvas></div>
+  <div class="card list" id="dayList"><div class="label">Dagar</div></div>
+</section>
+
+<!-- INSTÄLLNINGAR -->
+<section class="view" id="v-settings">
+  <div class="card">
+    <div class="label">Profil</div>
+    <label class="f">Ålder</label><input id="sAge" type="number" inputmode="numeric">
+    <label class="f">Vikt (kg)</label><input id="sWeight" type="number" inputmode="decimal">
+    <label class="f">Kön (för kaloriformeln)</label><select id="sSex"><option value="m">Man</option><option value="f">Kvinna</option></select>
+    <label class="f">Maxpuls (tomt = räknas ut från ålder)</label><input id="sMax" type="number" inputmode="numeric">
+    <label class="f">Vilopuls (tomt = från morgonmätningar)</label><input id="sRest" type="number" inputmode="numeric">
+    <button class="primary" id="btnSave" style="width:100%;margin-top:14px">Spara</button>
+  </div>
+  <div class="card">
+    <div class="label">Data</div>
+    <p class="note" style="margin:8px 0 12px">All data stannar i den här webbläsaren på din telefon. Kopiera en backup då och då.</p>
+    <div class="row"><button class="ghost" id="btnExport" style="flex:1">Kopiera backup</button><button class="ghost" id="btnImport" style="flex:1">Klistra in backup</button></div>
+    <textarea id="impBox" style="display:none;width:100%;height:100px;margin-top:10px;background:#0f1216;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px;font-family:JetBrains Mono;font-size:11px"></textarea>
+    <button class="ghost" id="btnReset" style="width:100%;margin-top:10px;color:var(--rec-lo)">Radera all data</button>
+  </div>
+  <div class="card">
+    <div class="label">Så funkar det</div>
+    <p class="note" style="margin-top:8px">
+      <b>1.</b> Slå på <b>Broadcast Heart Rate</b> under Device Settings i bandets officiella app. Då skickar bandet puls via standard-Bluetooth.<br>
+      <b>2.</b> Öppna Jhoop i <b>Bluefy</b> (iPhone) eller Chrome (Android/dator). Safari saknar Web Bluetooth.<br>
+      <b>3.</b> Tryck <b>Anslut band</b>. Låt sidan vara öppen när du tränar.<br><br>
+      <b>Belastning</b> (0–21) bygger på Banisters TRIMP – tid i pulszoner viktat mot pulsreserven, på en logaritmisk skala så det blir svårare ju högre du kommer.<br>
+      <b>Återhämtning</b> (0–100 %) jämför morgonens HRV (ln rmssd) och vilopuls mot ditt 30-dagarssnitt. De första 4 dagarna kalibrerar den.<br>
+      <b>Sömn</b> mäts inte: det kräver bandets rörelsesensor och lagrade data, som bara bandets egen app kan läsa.
+    </p>
+  </div>
+</section>
+
+<nav><div class="in">
+  <button class="act" data-v="today">Idag</button>
+  <button data-v="workout">Pass</button>
+  <button data-v="morning">Morgon</button>
+  <button data-v="trends">Trender</button>
+  <button data-v="settings">Profil</button>
+</div></nav>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const KEY = 'jhoop.v1';
+const todayKey = (d = new Date()) => d.toLocaleDateString('sv-SE');
+
+// ---------- storage ----------
+let db;
+function load(){ try{ db = JSON.parse(localStorage.getItem(KEY)) || null }catch(e){ db=null }
+  if(!db) db = {profile:{age:35,weight:75,sex:'m',max:'',rest:''}, days:{}, workouts:[]};
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)) }catch(e){} }
+function day(k = todayKey()){
+  if(!db.days[k]) db.days[k] = {trimp:0, kcal:0, strain:0, zoneSec:[0,0,0,0,0,0], recovery:null, hrv:null, rhr:null};
+  return db.days[k];
+}
+load();
+
+// ---------- physiology ----------
+const maxHR = () => +db.profile.max || Math.round(208 - 0.7 * (+db.profile.age || 35)); // Tanaka
+function restHR(){
+  if(+db.profile.rest) return +db.profile.rest;
+  const v = Object.values(db.days).map(d=>d.rhr).filter(Boolean).slice(-7);
+  return v.length ? Math.round(v.reduce((a,b)=>a+b)/v.length) : 60;
+}
+const ZONES = ['Vila','Z1','Z2','Z3','Z4','Z5'];
+const ZCOL = ['#3a404b','#6b8cff','#2fd38a','#f2c94c','#ff9f43','#ff5a5f'];
+function zoneOf(hr){ const p = hr / maxHR(); return p<.5?0:p<.6?1:p<.7?2:p<.8?3:p<.9?4:5; }
+// Banister TRIMP per second
+function trimpRate(hr){
+  const r = restHR(), m = maxHR();
+  const x = Math.max(0, Math.min(1, (hr - r) / (m - r)));
+  if(x < 0.25) return 0; // ignorera vardagspuls
+  const k = db.profile.sex === 'f' ? 1.67 : 1.92;
+  return (x * 0.64 * Math.exp(k * x)) / 60;
+}
+const strainFromTrimp = t => 21 * (1 - Math.exp(-t / 115));
+// Keytel et al. kcal/min
+function kcalRate(hr){
+  if(hr < restHR() + 20) return 0;
+  const a = +db.profile.age||35, w = +db.profile.weight||75;
+  const k = db.profile.sex==='f'
+    ? (-20.4022 + 0.4472*hr - 0.1263*w + 0.074*a)/4.184
+    : (-55.0969 + 0.6309*hr + 0.1988*w + 0.2017*a)/4.184;
+  return Math.max(0, k) / 60;
+}
+function rmssd(rr){ // rr in ms
+  const c = cleanRR(rr); if(c.length < 10) return null;
+  let s = 0; for(let i=1;i<c.length;i++){ const d=c[i]-c[i-1]; s+=d*d; }
+  return Math.sqrt(s/(c.length-1));
+}
+function cleanRR(rr){ // ta bort artefakter (>20 % från lokal median)
+  const out=[]; for(let i=0;i<rr.length;i++){
+    const v=rr[i]; if(v<300||v>2000) continue;
+    const win = rr.slice(Math.max(0,i-5), i+6).filter(x=>x>=300&&x<=2000).sort((a,b)=>a-b);
+    const med = win[Math.floor(win.length/2)];
+    if(Math.abs(v-med)/med < 0.2) out.push(v);
+  } return out;
+}
+function recoveryScore(hrv, rhr){
+  const past = Object.entries(db.days).filter(([k,d])=>k!==todayKey() && d.hrv && d.rhr).slice(-30).map(([,d])=>d);
+  if(past.length < 4) return {score:null, n:past.length};
+  const ln = past.map(d=>Math.log(d.hrv)), rh = past.map(d=>d.rhr);
+  const mean=a=>a.reduce((x,y)=>x+y)/a.length, sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))||0.0001};
+  const zH = (Math.log(hrv)-mean(ln))/Math.max(sd(ln),0.08);
+  const zR = (rhr-mean(rh))/Math.max(sd(rh),2);
+  const raw = 0.7*zH - 0.3*zR;
+  return {score: Math.round(100/(1+Math.exp(-1.6*raw - 0.4))), n:past.length};
+}
+
+// ---------- live state ----------
+let curHR = null, lastBeat = 0, hrHist = [], rrBuf = [], source = null;
+let lastTick = Date.now();
+let workout = null, morning = null;
+
+function onSample(hr, rrs){
+  curHR = hr; lastBeat = Date.now();
+  hrHist.push({t:Date.now(), hr}); if(hrHist.length>300) hrHist.shift();
+  if(rrs && rrs.length){ rrBuf.push(...rrs); if(rrBuf.length>400) rrBuf.splice(0, rrBuf.length-400);
+    if(morning) morning.rr.push(...rrs); }
+  if(morning) morning.hr.push(hr);
+  if(workout) workout.hr.push(hr);
+  renderLive();
+}
+
+// integrate every second
+setInterval(()=>{
+  const now = Date.now(), dt = Math.min(5,(now-lastTick)/1000); lastTick = now;
+  if(curHR && now-lastBeat < 10000){
+    const d = day(), tr = trimpRate(curHR)*dt, kc = kcalRate(curHR)*dt;
+    d.trimp += tr; d.kcal += kc; d.strain = strainFromTrimp(d.trimp);
+    d.zoneSec[zoneOf(curHR)] += dt;
+    if(workout && workout.running){ workout.trimp += tr; workout.kcal += kc; }
+  }
+  if(workout && workout.running) renderWorkout();
+  if(morning) tickMorning();
+  renderRings();
+  if(now % 15000 < 1000) save();
+}, 1000);
+
+// ---------- bluetooth ----------
+const HELP_NO_BT = 'Den här webbläsaren saknar Web Bluetooth. På iPhone: öppna sidan i appen <b>Bluefy</b> (gratis). På Android/dator: Chrome eller Edge. Om du ser sidan inuti Claude-appen: öppna länken direkt i Bluefy.';
+async function connect(){
+  if(!navigator.bluetooth){ $('btHelp').innerHTML = HELP_NO_BT; toast('Web Bluetooth saknas här'); return; }
+  try{
+    const dev = await navigator.bluetooth.requestDevice({
+      filters:[{services:['heart_rate']},{namePrefix:'WHOOP'},{namePrefix:'Whoop'}],
+      optionalServices:['heart_rate','battery_service']
+    });
+    setStatus('Ansluter…');
+    dev.addEventListener('gattserverdisconnected', ()=>{ setStatus('Frånkopplad – försöker igen', ''); retry(dev); });
+    await attach(dev);
+  }catch(e){
+    if(e.name !== 'NotFoundError') toast('Kunde inte ansluta: '+e.message);
+    if(String(e.message).match(/disallowed|permissions policy|not allowed/i)) $('btHelp').innerHTML = HELP_NO_BT;
+    setStatus(source==='bt'?'Ansluten':'Inte ansluten', source==='bt'?'on':'');
+  }
+}
+async function attach(dev){
+  const srv = await dev.gatt.connect();
+  const svc = await srv.getPrimaryService('heart_rate');
+  const ch = await svc.getCharacteristic('heart_rate_measurement');
+  ch.addEventListener('characteristicvaluechanged', e => parseHR(e.target.value));
+  await ch.startNotifications();
+  stopDemo(); source='bt';
+  setStatus(dev.name || 'Band anslutet', 'on');
+  $('btnConnect').textContent = 'Ansluten ✓';
+  $('btHelp').textContent = '';
+  try{ const b = await (await srv.getPrimaryService('battery_service')).getCharacteristic('battery_level');
+       const v = await b.readValue(); setStatus((dev.name||'Band')+' · '+v.getUint8(0)+' %','on'); }catch(e){}
+}
+async function retry(dev, n=0){
+  if(n>8) { setStatus('Inte ansluten'); source=null; $('btnConnect').textContent='Anslut band'; return; }
+  await new Promise(r=>setTimeout(r, 1500*(n+1)));
+  try{ await attach(dev); toast('Återansluten'); }catch(e){ retry(dev, n+1); }
+}
+function parseHR(dv){
+  const f = dv.getUint8(0); let i = 1, hr;
+  if(f & 1){ hr = dv.getUint16(i, true); i+=2; } else { hr = dv.getUint8(i); i+=1; }
+  if(f & 8) i += 2; // energy expended
+  const rrs=[]; if(f & 16){ while(i+1 < dv.byteLength){ rrs.push(dv.getUint16(i,true)/1024*1000); i+=2; } }
+  if(hr>25 && hr<240) onSample(hr, rrs);
+  window._hasRR = window._hasRR || rrs.length>0;
+}
+
+// ---------- demo ----------
+let demoT = null, demoPhase = 0;
+function startDemo(){
+  if(source==='bt') return;
+  source='demo'; setStatus('Demoläge','demo'); $('btnDemo').textContent='Stoppa';
+  let base = 62;
+  demoT = setInterval(()=>{
+    demoPhase += 1;
+    const target = workout&&workout.running ? 150 + 20*Math.sin(demoPhase/40) : 62 + 6*Math.sin(demoPhase/25);
+    base += (target-base)*0.05 + (Math.random()-0.5)*1.5;
+    const hr = Math.round(base), rr=[]; let mean = 60000/base;
+    const n = Math.max(1, Math.round(base/60));
+    for(let k=0;k<n;k++) rr.push(mean + (Math.random()-0.5)*(workout&&workout.running?12:70));
+    window._hasRR = true;
+    onSample(hr, rr);
+  },1000);
+}
+function stopDemo(){ if(demoT){ clearInterval(demoT); demoT=null; } if(source==='demo'){ source=null; setStatus('Inte ansluten'); } $('btnDemo').textContent='Demo'; }
+
+// ---------- rendering ----------
+function setStatus(t, cls=''){ $('statusTxt').textContent=t; $('dot').className='dot '+cls; }
+function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),2600); }
+const recColor = s => s==null?'var(--rec-mid)': s>=67?'var(--rec-hi)': s>=34?'var(--rec-mid)':'var(--rec-lo)';
+function renderRings(){
+  const d = day();
+  $('strTxt').textContent = d.strain.toFixed(1);
+  $('strArc').style.strokeDashoffset = 314*(1-d.strain/21);
+  $('kcal').textContent = Math.round(d.kcal);
+  if(d.recovery!=null){
+    $('recTxt').textContent = d.recovery+'%';
+    $('recArc').style.stroke = recColor(d.recovery);
+    $('recArc').style.strokeDashoffset = 314*(1-d.recovery/100);
+    $('recNote').textContent = d.recovery>=67?'Redo att pusha':d.recovery>=34?'Lagom belastning':'Ta det lugnt idag';
+  } else if(d.hrv){ $('recTxt').textContent='…'; $('recNote').textContent='Kalibrerar baslinje'; }
+  $('rhr').textContent = (d.rhr || restHR()) + '';
+  const tot = d.zoneSec.reduce((a,b)=>a+b)||1;
+  $('zoneBar').innerHTML = d.zoneSec.map((s,i)=>`<div style="width:${s/tot*100}%;background:${ZCOL[i]}"></div>`).join('');
+}
+function renderLive(){
+  const el = $('hr'); el.textContent = curHR; el.classList.remove('beat'); void el.offsetWidth; el.classList.add('beat');
+  const z = zoneOf(curHR); $('zone').textContent = ZONES[z]; $('zone').style.color = ZCOL[z];
+  $('pctMax').textContent = Math.round(curHR/maxHR()*100)+' % av max';
+  const h = rmssd(rrBuf.slice(-90));
+  $('hrvNow').textContent = h? Math.round(h)+' ms':'–';
+  $('rrNote').textContent = window._hasRR ? '' : (source==='bt' ? 'Bandet skickar ingen RR-data just nu – HRV kräver att du är stilla.' : '');
+  drawLine($('live'), hrHist.map(p=>p.hr), '#ff5a5f');
+}
+function drawLine(cv, data, color, opts={}){
+  const dpr = devicePixelRatio||1, w = cv.clientWidth, h = +cv.getAttribute('height');
+  cv.width = w*dpr; cv.height = h*dpr; cv.style.height = h+'px';
+  const c = cv.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,w,h);
+  const vals = data.filter(v=>v!=null); if(vals.length<2){ c.fillStyle='#555'; c.font='12px Inter'; c.fillText(opts.empty||'Ingen data än',8,h/2); return; }
+  const mn = opts.min ?? Math.min(...vals)-5, mx = opts.max ?? Math.max(...vals)+5;
+  const X = i => i/(data.length-1)*(w-4)+2, Y = v => h-4-(v-mn)/(mx-mn)*(h-8);
+  if(opts.bars){
+    const bw = w/data.length*0.6;
+    data.forEach((v,i)=>{ if(v==null) return; c.fillStyle = opts.colorFn?opts.colorFn(v):color;
+      const x = i/data.length*w + (w/data.length-bw)/2; c.beginPath(); c.roundRect(x, Y(v), bw, h-4-Y(v), 4); c.fill(); });
+  } else {
+    const g = c.createLinearGradient(0,0,0,h); g.addColorStop(0,color+'55'); g.addColorStop(1,color+'00');
+    c.beginPath(); let first=true;
+    data.forEach((v,i)=>{ if(v==null) return; first?c.moveTo(X(i),Y(v)):c.lineTo(X(i),Y(v)); first=false; });
+    c.strokeStyle=color; c.lineWidth=2; c.lineJoin='round'; c.stroke();
+    c.lineTo(X(data.length-1),h); c.lineTo(X(0),h); c.fillStyle=g; c.fill();
+  }
+  if(opts.labels){ c.fillStyle='#8b94a3'; c.font='10px Inter'; opts.labels.forEach((l,i)=>{ if(i%2) return; c.fillText(l, i/data.length*w+2, h-1); }); }
+}
+
+// ---------- workout ----------
+const fmt = s => { s=Math.floor(s); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0'); };
+$('btnWorkout').onclick = () => {
+  if(!workout || !workout.running){
+    if(!source){ toast('Anslut bandet (eller starta demo) först'); }
+    workout = {running:true, start:Date.now(), hr:[], trimp:0, kcal:0, type:$('wType').value};
+    $('btnWorkout').textContent='Avsluta pass'; $('btnWorkout').classList.remove('primary');
+  } else {
+    workout.running=false;
+    const w = workout, hrs=w.hr;
+    if(hrs.length>30){
+      db.workouts.unshift({date:new Date(w.start).toISOString(), type:w.type, dur:(Date.now()-w.start)/1000,
+        avg:Math.round(hrs.reduce((a,b)=>a+b)/hrs.length), max:Math.max(...hrs), strain:+strainFromTrimp(w.trimp).toFixed(1), kcal:Math.round(w.kcal)});
+      db.workouts = db.workouts.slice(0,100); save(); toast('Pass sparat');
+    } else toast('För kort pass – sparades inte');
+    $('btnWorkout').textContent='Starta pass'; $('btnWorkout').classList.add('primary');
+    renderWList();
+  }
+};
+function renderWorkout(){
+  const w=workout, h=w.hr;
+  $('wTime').textContent = fmt((Date.now()-w.start)/1000);
+  if(h.length){ $('wAvg').textContent=Math.round(h.reduce((a,b)=>a+b)/h.length); $('wMax').textContent=Math.max(...h); }
+  $('wStrain').textContent = strainFromTrimp(w.trimp).toFixed(1);
+  $('wKcal').textContent = Math.round(w.kcal);
+  drawLine($('wChart'), h.length>600 ? h.filter((_,i)=>i%Math.ceil(h.length/600)===0) : h, '#4c8dff');
+}
+function renderWList(){
+  $('wList').innerHTML = '<div class="label">Senaste pass</div>' + (db.workouts.length? db.workouts.slice(0,15).map(w=>
+    `<div class="it"><div>${w.type}<div class="note">${new Date(w.date).toLocaleDateString('sv-SE',{weekday:'short',day:'numeric',month:'short'})} · ${fmt(w.dur)}</div></div>
+     <div style="text-align:right" class="mono">${w.strain.toFixed(1)}<div class="note">${w.avg} bpm · ${w.kcal} kcal</div></div></div>`).join('')
+    : '<p class="note" style="margin-top:8px">Inga pass än.</p>');
+}
+
+// ---------- morning ----------
+const MDUR = 180;
+$('btnMorning').onclick = () => {
+  if(morning){ morning=null; $('btnMorning').textContent='Starta mätning'; $('mResult').textContent='Avbruten.'; return; }
+  if(!source){ toast('Anslut bandet först'); return; }
+  morning = {start:Date.now(), rr:[], hr:[]};
+  $('btnMorning').textContent='Avbryt'; $('mResult').textContent='Ligg still…';
+};
+function tickMorning(){
+  const el = (Date.now()-morning.start)/1000;
+  $('mProg').style.width = Math.min(100, el/MDUR*100)+'%';
+  $('mTime').textContent = fmt(Math.max(0, MDUR-el));
+  $('mBeats').textContent = morning.rr.length;
+  const h = rmssd(morning.rr); $('mHrv').textContent = h?Math.round(h):'–';
+  if(morning.hr.length) $('mHr').textContent = Math.round(morning.hr.reduce((a,b)=>a+b)/morning.hr.length);
+  if(el >= MDUR) finishMorning();
+}
+function finishMorning(){
+  const m = morning; morning=null; $('btnMorning').textContent='Starta mätning';
+  const h = rmssd(m.rr.slice(30)); // hoppa över första halvminuten
+  const sorted = [...m.hr].sort((a,b)=>a-b);
+  const rhr = sorted.length ? Math.round(sorted.slice(0, Math.max(1, Math.floor(sorted.length*0.3))).reduce((a,b)=>a+b)/Math.max(1,Math.floor(sorted.length*0.3))) : null;
+  if(!h || !rhr){ $('mResult').innerHTML='Fick inte nog med rena hjärtslag. Kontrollera att bandet sitter tätt och att RR-data skickas, och försök igen.'; return; }
+  const d = day(); d.hrv = Math.round(h); d.rhr = rhr;
+  const r = recoveryScore(d.hrv, d.rhr); d.recovery = r.score; save(); renderRings();
+  $('mResult').innerHTML = r.score==null
+    ? `HRV <b>${d.hrv} ms</b>, vilopuls <b>${rhr}</b>. Bygger din baslinje – ${4-r.n} morgonmätning(ar) till innan återhämtning visas.`
+    : `Återhämtning <b style="color:${recColor(r.score)}">${r.score} %</b> · HRV ${d.hrv} ms · vilopuls ${rhr}.`;
+}
+
+// ---------- trends ----------
+function renderTrends(){
+  const keys=[], now=new Date();
+  for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); keys.push(todayKey(d)); }
+  const g = k => db.days[k]||{};
+  const labels = keys.map(k=>k.slice(8));
+  drawLine($('tRec'), keys.map(k=>g(k).recovery??null), '#2fd38a', {bars:true,min:0,max:100,labels,colorFn:v=>v>=67?'#2fd38a':v>=34?'#f2c94c':'#ff5a5f',empty:'Gör morgonmätningar för att se återhämtning'});
+  drawLine($('tStr'), keys.map(k=>g(k).strain!=null?+g(k).strain.toFixed(1):null), '#4c8dff', {bars:true,min:0,max:21,labels});
+  drawLine($('tHrv'), keys.map(k=>g(k).hrv??null), '#b48cff', {empty:'Ingen HRV än'});
+  $('dayList').innerHTML = '<div class="label">Dagar</div>' + keys.slice().reverse().filter(k=>db.days[k]).map(k=>{const d=db.days[k];
+    return `<div class="it"><div>${new Date(k).toLocaleDateString('sv-SE',{weekday:'long',day:'numeric',month:'short'})}</div>
+      <div class="mono"><span style="color:${recColor(d.recovery)}">${d.recovery!=null?d.recovery+'%':'–'}</span> · <span style="color:#4c8dff">${(d.strain||0).toFixed(1)}</span> · <span style="color:#b48cff">${d.hrv||'–'}</span></div></div>`}).join('');
+}
+
+// ---------- settings ----------
+function fillSettings(){ const p=db.profile; $('sAge').value=p.age; $('sWeight').value=p.weight; $('sSex').value=p.sex; $('sMax').value=p.max; $('sRest').value=p.rest;
+  $('sMax').placeholder = 'Beräknad: '+Math.round(208-0.7*(+p.age||35)); }
+$('btnSave').onclick = () => { Object.assign(db.profile,{age:+$('sAge').value||35, weight:+$('sWeight').value||75, sex:$('sSex').value, max:$('sMax').value, rest:$('sRest').value}); save(); fillSettings(); toast('Sparat'); };
+$('btnExport').onclick = async () => { try{ await navigator.clipboard.writeText(JSON.stringify(db)); toast('Backup kopierad'); }catch(e){ $('impBox').style.display='block'; $('impBox').value=JSON.stringify(db); toast('Markera och kopiera texten'); } };
+$('btnImport').onclick = () => { const b=$('impBox'); if(b.style.display!=='block'){ b.style.display='block'; b.value=''; b.placeholder='Klistra in backup och tryck igen'; return; }
+  try{ const d=JSON.parse(b.value); if(!d.days) throw 0; db=d; save(); toast('Backup återställd'); b.style.display='none'; fillSettings(); renderRings(); }catch(e){ toast('Ogiltig backup'); } };
+$('btnReset').onclick = function(){ if(this.dataset.c){ db=null; try{localStorage.removeItem(KEY)}catch(e){} load(); fillSettings(); renderRings(); toast('Raderat'); this.textContent='Radera all data'; delete this.dataset.c; }
+  else { this.dataset.c=1; this.textContent='Tryck igen för att bekräfta'; setTimeout(()=>{ delete this.dataset.c; this.textContent='Radera all data'; },4000); } };
+
+// ---------- nav ----------
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('act', x===b));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('act', v.id==='v-'+b.dataset.v));
+  if(b.dataset.v==='trends') renderTrends();
+  if(b.dataset.v==='workout') renderWList();
+  window.scrollTo(0,0);
+});
+$('btnConnect').onclick = connect;
+$('btnDemo').onclick = () => demoT ? stopDemo() : startDemo();
+
+// keep screen awake while connected
+let wl=null; async function wake(){ try{ if('wakeLock' in navigator && !wl) wl = await navigator.wakeLock.request('screen'); wl.onrelease=()=>wl=null; }catch(e){} }
+document.addEventListener('click', wake, {once:true});
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') wake(); else save(); });
+addEventListener('pagehide', save);
+
+if(!navigator.bluetooth) $('btHelp').innerHTML = HELP_NO_BT;
+fillSettings(); renderRings(); renderWList(); drawLine($('live'), [], '#ff5a5f', {empty:'Väntar på puls…'});
+})();
+</script>
+</body>
+</html>
